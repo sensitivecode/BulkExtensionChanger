@@ -1,0 +1,10 @@
+bin/
+obj/
+dist/
+Installer/payload.zip
+__pycache__/
+*.pyc
+*.user
+*.suo
+.vs/
+.vscode/

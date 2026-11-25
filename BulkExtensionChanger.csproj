@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <StartupObject>BulkExtensionChanger.Program</StartupObject>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <AssemblyName>BulkExtensionChanger</AssemblyName>
+    <RootNamespace>BulkExtensionChanger</RootNamespace>
+    <Version>1.0.0</Version>
+    <Description>Локальная утилита массовой смены расширений файлов через контекстное меню Windows</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Installer\**" />
+    <Page Include="App.xaml" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>
