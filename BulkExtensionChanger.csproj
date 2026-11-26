@@ -10,7 +10,7 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>BulkExtensionChanger</AssemblyName>
     <RootNamespace>BulkExtensionChanger</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Description>Локальная утилита массовой смены расширений файлов через контекстное меню Windows</Description>
   </PropertyGroup>
 

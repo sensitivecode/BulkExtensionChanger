@@ -1,5 +1,6 @@
+import argparse
 import io
-import os
+import struct
 import tarfile
 import zipfile
 from pathlib import Path
@@ -15,8 +16,6 @@ PNG_PATH = ROOT / "Assets" / "app.png"
 
 def extract_256_png_from_ico() -> bytes:
     data = ICO_PATH.read_bytes()
-    # Our ICO stores 4 PNG images, last one is 256x256
-    import struct
     count = struct.unpack_from("<HHH", data, 0)[2]
     best = b""
     for i in range(count):
@@ -39,11 +38,11 @@ def add_zip_file(zf: zipfile.ZipFile, arcname: str, data: bytes, executable: boo
     zf.writestr(zi, data)
 
 
-def build_macos_zip() -> Path:
+def build_macos_zip(version: str) -> Path:
     out_zip = DIST / "BulkExtensionChanger-macOS.zip"
     app_py_bytes = lf_bytes(APP_PY.read_text(encoding="utf-8"))
 
-    info_plist = lf_bytes("""<?xml version="1.0" encoding="UTF-8"?>
+    info_plist = lf_bytes(f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -54,9 +53,9 @@ def build_macos_zip() -> Path:
   <key>CFBundleIdentifier</key>
   <string>com.bulkextensionchanger.app</string>
   <key>CFBundleVersion</key>
-  <string>1.0.0</string>
+  <string>{version}</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0</string>
+  <string>{version}</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleExecutable</key>
@@ -68,6 +67,7 @@ def build_macos_zip() -> Path:
 """)
 
     launch_sh = lf_bytes("""#!/bin/bash
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/Current/bin:$PATH"
 DIR="$(cd "$(dirname "$0")/../Resources" && pwd)"
 exec python3 "$DIR/bulk_extension_changer.py" "$@"
 """)
@@ -145,7 +145,8 @@ exec python3 "$DIR/bulk_extension_changer.py" "$@"
         <key>ActionParameters</key>
         <dict>
           <key>COMMAND_STRING</key>
-          <string>python3 "$HOME/Applications/BulkExtensionChanger.app/Contents/Resources/bulk_extension_changer.py" "$@"</string>
+          <string>export PATH="/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/Current/bin:$PATH"
+python3 "$HOME/Applications/BulkExtensionChanger.app/Contents/Resources/bulk_extension_changer.py" "$@"</string>
           <key>CheckedForUserDefaultShell</key>
           <true/>
           <key>inputMethod</key>
@@ -221,9 +222,13 @@ def build_linux_targz() -> Path:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", default="1.1.0")
+    args = parser.parse_args()
+
     DIST.mkdir(parents=True, exist_ok=True)
     extract_256_png_from_ico()
-    mac = build_macos_zip()
+    mac = build_macos_zip(args.version)
     lin = build_linux_targz()
-    print(f"macOS package: {mac} ({mac.stat().st_size} bytes)")
-    print(f"Linux package: {lin} ({lin.stat().st_size} bytes)")
+    print(f"macOS package (v{args.version}): {mac} ({mac.stat().st_size} bytes)")
+    print(f"Linux package (v{args.version}): {lin} ({lin.stat().st_size} bytes)")

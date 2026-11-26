@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/Current/bin:$PATH"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DEST="$HOME/Applications/BulkExtensionChanger.app"
 SERV_DEST="$HOME/Library/Services/Массовая смена расширений.workflow"

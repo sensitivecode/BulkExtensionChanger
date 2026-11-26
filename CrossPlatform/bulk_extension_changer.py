@@ -141,17 +141,21 @@ def build_preview(items: list[FileRenameItem], target_ext: str, collision_mode: 
     dot_ext = "." + ext
     reserved: set[str] = set()
     moving: set[str] = set()
+    planned_targets: set[str] = set()
+
+    def is_dotfile(name: str) -> bool:
+        return name.startswith(".") and "." not in name[1:]
 
     for item in items:
         cur_ext = os.path.splitext(item.original_path)[1].lstrip(".").lower()
-        if not item.selected or cur_ext == ext:
+        if not item.selected or cur_ext == ext or is_dotfile(item.file_name):
             reserved.add(os.path.normcase(item.original_path))
         else:
             moving.add(os.path.normcase(item.original_path))
 
     def exists_or_reserved(path: str) -> bool:
         norm = os.path.normcase(path)
-        if norm in reserved:
+        if norm in reserved or norm in planned_targets:
             return True
         return os.path.exists(path) and norm not in moving
 
@@ -163,6 +167,14 @@ def build_preview(items: list[FileRenameItem], target_ext: str, collision_mode: 
             item.unchanged = True
             item.conflict = False
             item.status_text = "Снят выбор"
+            continue
+
+        if is_dotfile(item.file_name):
+            item.new_file_name = item.file_name
+            item.target_path = item.original_path
+            item.unchanged = True
+            item.conflict = True
+            item.status_text = "Dot-файл (пропуск)"
             continue
 
         if cur_ext == ext:
@@ -177,6 +189,7 @@ def build_preview(items: list[FileRenameItem], target_ext: str, collision_mode: 
         candidate = os.path.join(item.directory, stem + dot_ext)
 
         if not exists_or_reserved(candidate):
+            planned_targets.add(os.path.normcase(candidate))
             reserved.add(os.path.normcase(candidate))
             item.target_path = candidate
             item.new_file_name = os.path.basename(candidate)
@@ -192,6 +205,7 @@ def build_preview(items: list[FileRenameItem], target_ext: str, collision_mode: 
                 if not exists_or_reserved(suffixed):
                     break
                 idx += 1
+            planned_targets.add(os.path.normcase(suffixed))
             reserved.add(os.path.normcase(suffixed))
             item.target_path = suffixed
             item.new_file_name = os.path.basename(suffixed)
@@ -205,12 +219,21 @@ def build_preview(items: list[FileRenameItem], target_ext: str, collision_mode: 
             item.conflict = True
             item.status_text = "Пропуск (имя занято)"
         else:
-            reserved.add(os.path.normcase(candidate))
-            item.target_path = candidate
-            item.new_file_name = os.path.basename(candidate)
-            item.unchanged = False
-            item.conflict = True
-            item.status_text = "Перезапишет файл"
+            cand_norm = os.path.normcase(candidate)
+            if cand_norm in planned_targets:
+                item.target_path = item.original_path
+                item.new_file_name = item.file_name
+                item.unchanged = True
+                item.conflict = True
+                item.status_text = "Конфликт в пакете"
+            else:
+                planned_targets.add(cand_norm)
+                reserved.add(cand_norm)
+                item.target_path = candidate
+                item.new_file_name = os.path.basename(candidate)
+                item.unchanged = False
+                item.conflict = True
+                item.status_text = "Перезапишет файл"
 
 
 def execute_rename(items: list[FileRenameItem], collision_mode: str) -> tuple[int, list[str], list[tuple[str, str]]]:
@@ -445,6 +468,13 @@ class BulkExtensionApp:
             activebackground="#222227",
             activeforeground="#F4F4F6",
         ).pack(side="left")
+        tk.Label(
+            row2,
+            text="Меняется только расширение имени файла (без конвертации)",
+            bg="#222227",
+            fg="#A1A1AA",
+            font=("Segoe UI", 9),
+        ).pack(side="left", padx=(16, 0))
 
         # Preview table
         table_card = tk.Frame(main, bg="#222227", highlightbackground="#3A3A42", highlightthickness=1)
@@ -592,8 +622,7 @@ class BulkExtensionApp:
 
     def on_apply(self) -> None:
         renamed, errors, undo_entries = execute_rename(self.items, self._selected_collision())
-        if undo_entries:
-            self.last_undo = undo_entries
+        self.last_undo = list(undo_entries)
 
         rename_map = {os.path.normcase(old): new for old, new in undo_entries}
         self.source_inputs = [rename_map.get(os.path.normcase(p), p) for p in self.source_inputs]

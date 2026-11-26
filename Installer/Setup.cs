@@ -15,9 +15,26 @@ namespace BulkExtensionChanger.Setup
     {
         private const string AppName = "Массовая смена расширений";
         private const string AppInternalName = "BulkExtensionChanger";
-        private const string AppVersion = "1.0.0";
         private const string UninstallRegPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\BulkExtensionChanger";
         private const string PayloadResourceName = "BulkExtensionChanger.Setup.payload.zip";
+
+        internal static string AppVersion
+        {
+            get
+            {
+                try
+                {
+                    var ver = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
+                    if (!string.IsNullOrEmpty(ver))
+                    {
+                        int plus = ver.IndexOf('+');
+                        return plus > 0 ? ver.Substring(0, plus) : ver;
+                    }
+                }
+                catch { }
+                return "1.1.0";
+            }
+        }
 
         [STAThread]
         private static int Main(string[] args)
@@ -499,7 +516,7 @@ namespace BulkExtensionChanger.Setup
             {
                 var title = new Label
                 {
-                    Text = "Добро пожаловать в мастер установки\n«Массовая смена расширений» v1.0.0",
+                    Text = "Добро пожаловать в мастер установки\n«Массовая смена расширений» v" + Program.AppVersion,
                     Font = new Font("Segoe UI", 13f, FontStyle.Bold),
                     Location = new Point(24, 20),
                     Size = new Size(490, 52)

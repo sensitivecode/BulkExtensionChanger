@@ -135,7 +135,12 @@
                               Content="Включая вложенные папки"
                               IsChecked="False"
                               Style="{StaticResource DarkCheckBoxStyle}"
-                              Click="IncludeSubfoldersCheckBox_Click"/>
+                              Click="IncludeSubfoldersCheckBox_Click"
+                              Margin="0,0,20,0"/>
+                    <TextBlock Text="Меняется только расширение имени файла (без конвертации)"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -153,7 +158,8 @@
                           Background="Transparent"
                           BorderThickness="0"
                           Foreground="{StaticResource TextPrimaryBrush}"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          SizeChanged="FilesListView_SizeChanged">
                     <ListView.Resources>
                         <Style TargetType="GridViewColumnHeader">
                             <Setter Property="Background" Value="#2A2A30"/>
@@ -195,7 +201,7 @@
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn Header="Текущее имя" Width="240">
+                            <GridViewColumn x:Name="ColOldName" Header="Текущее имя" Width="260">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding FileName}"
@@ -205,7 +211,7 @@
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn Header="Новое имя" Width="240">
+                            <GridViewColumn x:Name="ColNewName" Header="Новое имя" Width="260">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding NewFileName}"
@@ -216,7 +222,7 @@
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn Header="Статус" Width="170">
+                            <GridViewColumn x:Name="ColStatus" Header="Статус" Width="220">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding StatusText}"

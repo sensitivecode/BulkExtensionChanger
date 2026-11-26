@@ -24,7 +24,11 @@ public static class Program
             string.Equals(a, "--com-server", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(a, "-Embedding", StringComparison.OrdinalIgnoreCase));
 
-        var initialPaths = args.Where(a => !a.StartsWith('-')).ToList();
+        var initialPaths = args.Where(a =>
+            !string.Equals(a, "--com-server", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(a, "-Embedding", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(a, "--install", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(a, "--uninstall", StringComparison.OrdinalIgnoreCase)).ToList();
 
         if (!SingleInstanceIpc.TryAcquirePrimary(out var primaryMutex))
         {

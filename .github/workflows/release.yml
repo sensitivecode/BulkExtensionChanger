@@ -10,7 +10,21 @@ permissions:
   contents: write
 
 jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - id: ver
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=1.1.0" >> "$GITHUB_OUTPUT"
+          fi
+
   build-windows:
+    needs: resolve-version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,19 +33,20 @@ jobs:
           dotnet-version: "8.0.x"
       - name: Build Windows Setup
         shell: pwsh
-        run: .\build-setup.ps1
+        run: .\build-setup.ps1 -Version "${{ needs.resolve-version.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
           path: dist/BulkExtensionChanger-Setup.exe
 
   build-macos:
+    needs: resolve-version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Package macOS ZIP & DMG
         run: |
-          python3 Installer/pack_crossplatform.py
+          python3 Installer/pack_crossplatform.py --version "${{ needs.resolve-version.outputs.version }}"
           mkdir -p dmg_stage
           unzip -q dist/BulkExtensionChanger-macOS.zip -d dmg_stage
           hdiutil create -volname "BulkExtensionChanger" -srcfolder dmg_stage/BulkExtensionChanger-macOS -ov -format UDZO dist/BulkExtensionChanger-macOS.dmg
@@ -43,42 +58,59 @@ jobs:
             dist/BulkExtensionChanger-macOS.zip
 
   build-linux:
+    needs: resolve-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Package Linux tar.gz & deb
         run: |
-          python3 Installer/pack_crossplatform.py
-          mkdir -p deb_pkg/DEBIAN deb_pkg/usr/local/bin deb_pkg/usr/share/bulk-extension-changer deb_pkg/usr/share/applications deb_pkg/usr/share/icons/hicolor/256x256/apps
+          VERSION="${{ needs.resolve-version.outputs.version }}"
+          python3 Installer/pack_crossplatform.py --version "$VERSION"
+          mkdir -p deb_pkg/DEBIAN \
+                   deb_pkg/usr/local/bin \
+                   deb_pkg/usr/share/bulk-extension-changer \
+                   deb_pkg/usr/share/applications \
+                   deb_pkg/usr/share/kio/servicemenus \
+                   deb_pkg/usr/share/nemo/actions \
+                   deb_pkg/usr/share/icons/hicolor/256x256/apps
           cp CrossPlatform/bulk_extension_changer.py deb_pkg/usr/share/bulk-extension-changer/bulk_extension_changer.py
           chmod 755 deb_pkg/usr/share/bulk-extension-changer/bulk_extension_changer.py
           cp Assets/app.png deb_pkg/usr/share/icons/hicolor/256x256/apps/bulk-extension-changer.png
           printf '#!/bin/bash\nexec python3 /usr/share/bulk-extension-changer/bulk_extension_changer.py "$@"\n' > deb_pkg/usr/local/bin/bulk-extension-changer
           chmod 755 deb_pkg/usr/local/bin/bulk-extension-changer
           printf '[Desktop Entry]\nType=Application\nName=Массовая смена расширений\nName[en]=Bulk Extension Changer\nExec=/usr/local/bin/bulk-extension-changer %%F\nIcon=bulk-extension-changer\nTerminal=false\nCategories=Utility;FileTools;\n' > deb_pkg/usr/share/applications/bulk-extension-changer.desktop
-          printf 'Package: bulk-extension-changer\nVersion: 1.0.0\nSection: utils\nPriority: optional\nArchitecture: all\nDepends: python3, python3-tk\nMaintainer: BulkExtensionChanger\nDescription: Local bulk file extension changer with file manager context menu support\n' > deb_pkg/DEBIAN/control
-          dpkg-deb --build deb_pkg dist/bulk-extension-changer_1.0.0_all.deb
+          printf '[Desktop Entry]\nType=Service\nMimeType=all/allfiles;inode/directory;\nActions=BulkChangeExt;\nX-KDE-Priority=TopLevel\n\n[Desktop Action BulkChangeExt]\nName=Массовая смена расширений...\nName[en]=Bulk Extension Changer...\nIcon=bulk-extension-changer\nExec=/usr/local/bin/bulk-extension-changer %%F\n' > deb_pkg/usr/share/kio/servicemenus/bulk-extension-changer.desktop
+          chmod 755 deb_pkg/usr/share/kio/servicemenus/bulk-extension-changer.desktop
+          printf '[Nemo Action]\nName=Массовая смена расширений...\nComment=Bulk change file extensions\nExec=/usr/local/bin/bulk-extension-changer %%F\nIcon-Name=bulk-extension-changer\nSelection=any\nExtensions=any;\n' > deb_pkg/usr/share/nemo/actions/bulk-extension-changer.nemo_action
+          printf 'Package: bulk-extension-changer\nVersion: %s\nSection: utils\nPriority: optional\nArchitecture: all\nDepends: python3, python3-tk\nMaintainer: BulkExtensionChanger\nDescription: Local bulk file extension changer with file manager context menu support\n' "$VERSION" > deb_pkg/DEBIAN/control
+          dpkg-deb --build deb_pkg "dist/bulk-extension-changer_${VERSION}_all.deb"
       - uses: actions/upload-artifact@v4
         with:
           name: linux-installer
           path: |
             dist/BulkExtensionChanger-Linux.tar.gz
-            dist/bulk-extension-changer_1.0.0_all.deb
+            dist/bulk-extension-changer_*.deb
 
   release:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [resolve-version, build-windows, build-macos, build-linux]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Generate SHA-256 checksums
+        run: |
+          cd artifacts
+          find . -type f -exec sha256sum {} + > ../checksums-sha256.txt
       - name: Create draft release and upload assets
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           generate_release_notes: true
-          files: artifacts/**/*
+          files: |
+            artifacts/**/*
+            checksums-sha256.txt
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

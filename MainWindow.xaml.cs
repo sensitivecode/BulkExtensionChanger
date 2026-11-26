@@ -42,6 +42,7 @@ public partial class MainWindow : Window
         CollisionComboBox.SelectedIndex = 0;
 
         SourceInitialized += (_, _) => EnableDarkTitleBar();
+        Closed += (_, _) => _ipcMergeDebounceTimer.Stop();
 
         RefreshRegistrationStatus();
 
@@ -293,6 +294,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private void FilesListView_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var usableWidth = Math.Max(420, FilesListView.ActualWidth - 40 - 28);
+        ColOldName.Width = Math.Floor(usableWidth * 0.37);
+        ColNewName.Width = Math.Floor(usableWidth * 0.37);
+        ColStatus.Width = Math.Max(140, usableWidth - ColOldName.Width - ColNewName.Width);
+    }
+
     private void ClearButton_Click(object sender, RoutedEventArgs e)
     {
         _sourceInputs.Clear();
@@ -305,18 +314,12 @@ public partial class MainWindow : Window
     {
         var result = FileRenamerService.ExecuteRename(_items, SelectedCollisionMode);
 
-        if (result.UndoEntries.Count > 0)
-            _lastUndoEntries = result.UndoEntries.ToList();
+        _lastUndoEntries = result.UndoEntries.ToList();
 
-        // Update source paths so renamed files stay visible with their new names
-        var renamedMap = result.UndoEntries.ToDictionary(
-            u => u.OriginalPath,
-            u => u.RenamedPath,
-            StringComparer.OrdinalIgnoreCase);
-
+        // Update source paths so renamed (including overwritten) files stay visible with their new names
         for (int i = 0; i < _sourceInputs.Count; i++)
         {
-            if (renamedMap.TryGetValue(_sourceInputs[i], out var newPath))
+            if (result.RenamedMap.TryGetValue(_sourceInputs[i], out var newPath))
                 _sourceInputs[i] = newPath;
         }
 
